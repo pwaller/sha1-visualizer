@@ -3,7 +3,7 @@ Based on concept and code found here:
 http://news.ycombinator.com/item?id=2959219
 https://lock.cmpxchg8b.com/shatter/visualize.html?best=1
 
-Original concept: Tavis Ormandy <taviso@cmpxchg8b.com>
+Original concept and code: Tavis Ormandy <taviso@cmpxchg8b.com>
 
 HTML/visualization improvements:
     Peter Waller <peter.waller@gmail.com>
