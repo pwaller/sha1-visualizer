@@ -8,3 +8,5 @@ Original concept: Tavis Ormandy <taviso@cmpxchg8b.com>
 HTML/visualization improvements:
     Peter Waller <peter.waller@gmail.com>
     
+sha1_process_message originally based on:
+    http://www.webtoolkit.info/javascript-sha1.html
