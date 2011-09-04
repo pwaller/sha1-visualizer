@@ -1,0 +1,27 @@
+table {
+    border-width:       0 0 0 0;
+    border-style:       none;
+}
+td {
+    border-width:       0 0 0 0;
+    border-style:       none;
+    margin:             0;
+}
+.register {
+	font-family:        "Courier New", Courier, monospace;
+    font-size:          xx-small;
+}
+.warning {
+	color:              #F00;
+    display:            none;
+}
+.messages {
+    padding:            10px;
+    height:             auto;
+    width:              auto;
+    background-color:   white;
+    border:             1px solid black;
+    position:           fixed;
+    bottom:             0;
+}
+
