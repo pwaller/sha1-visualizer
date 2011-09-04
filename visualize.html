@@ -1,0 +1,567 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Visual SHA-1</title>
+<style>
+table {
+    border-width:       0 0 0 0;
+    border-style:       none;
+}
+td {
+    border-width:       0 0 0 0;
+    border-style:       none;
+    margin:             0;
+}
+.register {
+	font-family:        "Courier New", Courier, monospace;
+    font-size:          xx-small;
+}
+.warning {
+	color:              #F00;
+    display:            none;
+}
+.messages {
+    padding:            10px;
+    height:             auto;
+    width:              auto;
+    background-color:   white;
+    border:             1px solid black;
+    position:           fixed;
+    bottom:             0;
+}
+
+</style>
+</head>
+<body onload=process_input_vectors()>
+<script src="sha1.js"></script>
+<script>
+var M1_sha1_state = new Array();
+var M2_sha1_state = new Array();
+
+// This is my best result so far.
+// -- taviso.
+var best_known_M1 = [
+  0x7f, 0x45, 0x4c, 0x46, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x49, 0x25, 0x02, 0x00, 0x03, 0x00, 0x1a, 0x00, 0x49, 0x25,
+  0x1a, 0x00, 0x49, 0x25, 0x04, 0x00, 0x00, 0x00, 0xeb, 0x1e, 0x90, 0x90,
+  0x03, 0x44, 0xad, 0xa9, 0x5b, 0xef, 0x20, 0x00, 0x01, 0x00, 0xf7, 0x69,
+  0x04, 0x37, 0x9e, 0x5c, 0x27, 0x0b, 0xcb, 0x1c, 0x96, 0x35, 0x39, 0x62,
+  0xfd, 0x24, 0xca, 0x5d
+];
+var best_known_M2 = [
+  0x7f, 0x45, 0x4c, 0x46, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x49, 0x25, 0x02, 0x00, 0x03, 0x00, 0x1a, 0x00, 0x49, 0x25,
+  0x1a, 0x00, 0x49, 0x25, 0x04, 0x00, 0x00, 0x00, 0xeb, 0x1e, 0x90, 0x90,
+  0xf4, 0xf4, 0xf4, 0xf4, 0xf4, 0xf4, 0x20, 0x00, 0x01, 0x00, 0xf4, 0xf4,
+  0xf4, 0xf4, 0xf4, 0xf4, 0xf4, 0xf4, 0xf4, 0xf4, 0x0b, 0xe5, 0xad, 0x9c,
+  0x59, 0x92, 0x22, 0x50
+];
+
+function popcount(n) {
+    n >>>= 0
+    for(var popcnt = 0; n; n &= n - 1) {
+        popcnt++;
+    }
+    return popcnt;
+}
+
+function hamming_distance(x, y)
+{
+    return popcount(x ^ y);
+}
+
+function process_waterfall()
+{
+    for (var R = 0; R < 80; R++) {
+        var round       = document.getElementById("R_" + R);
+        var regA        = round.cells[1].children[0].rows[0].cells;
+        var regB        = round.cells[2].children[0].rows[0].cells;
+        var regC        = round.cells[3].children[0].rows[0].cells;
+        var regD        = round.cells[4].children[0].rows[0].cells;
+        var regE        = round.cells[5].children[0].rows[0].cells;
+        var regWt       = round.cells[6].children[0].rows[0].cells;
+
+        // Calculate hamming distance (Wt ignored)
+        var hd = hamming_distance(M1_sha1_state[R].A, M2_sha1_state[R].A)
+               + hamming_distance(M1_sha1_state[R].B, M2_sha1_state[R].B) 
+               + hamming_distance(M1_sha1_state[R].C, M2_sha1_state[R].C) 
+               + hamming_distance(M1_sha1_state[R].D, M2_sha1_state[R].D) 
+               + hamming_distance(M1_sha1_state[R].E, M2_sha1_state[R].E);
+
+        switch (true) {
+            case (hd >= 0  && hd < 32):
+                round.bgColor = "#0f0";
+                break;
+            case (hd >= 32 && hd < 64):
+                round.bgColor = "#fb0"
+                break;
+            case (hd >= 64):
+                round.bgColor = "#f00"
+                break;
+        }
+
+        for (var i = 0; i < 32; i++) {
+            if ((M1_sha1_state[R].A & (1 << i)) && (M2_sha1_state[R].A & (1 << i))) {
+                // Bit is set in both states
+                regA[i].bgColor = "#000";
+            } else if (!(M1_sha1_state[R].A & (1 << i)) && !(M2_sha1_state[R].A & (1 << i))) {
+                // Bit is set in neither states
+                regA[i].bgColor = "#fff";
+            } else {
+                // Bit is set in one state
+                regA[i].bgColor = "#00f";
+            }
+            if ((M1_sha1_state[R].B & (1 << i)) && (M2_sha1_state[R].B & (1 << i))) {
+                // Bit is set in both states
+                regB[i].bgColor = "#000";
+            } else if (!(M1_sha1_state[R].B & (1 << i)) && !(M2_sha1_state[R].B & (1 << i))) {
+                // Bit is set in neither states
+                regB[i].bgColor = "#fff";
+            } else {
+                // Bit is set in one state
+                regB[i].bgColor = "#00f";
+            }
+            if ((M1_sha1_state[R].C & (1 << i)) && (M2_sha1_state[R].C & (1 << i))) {
+                // Bit is set in both states
+                regC[i].bgColor = "#000";
+            } else if (!(M1_sha1_state[R].C & (1 << i)) && !(M2_sha1_state[R].C & (1 << i))) {
+                // Bit is set in neither states
+                regC[i].bgColor = "#fff";
+            } else {
+                // Bit is set in one state
+                regC[i].bgColor = "#00f";
+            }
+            if ((M1_sha1_state[R].D & (1 << i)) && (M2_sha1_state[R].D & (1 << i))) {
+                // Bit is set in both states
+                regD[i].bgColor = "#000";
+            } else if (!(M1_sha1_state[R].D & (1 << i)) && !(M2_sha1_state[R].D & (1 << i))) {
+                // Bit is set in neither states
+                regD[i].bgColor = "#fff";
+            } else {
+                // Bit is set in one state
+                regD[i].bgColor = "#00f";
+            }
+            if ((M1_sha1_state[R].E & (1 << i)) && (M2_sha1_state[R].E & (1 << i))) {
+                // Bit is set in both states
+                regE[i].bgColor = "#000";
+            } else if (!(M1_sha1_state[R].E & (1 << i)) && !(M2_sha1_state[R].E & (1 << i))) {
+                // Bit is set in neither states
+                regE[i].bgColor = "#fff";
+            } else {
+                // Bit is set in one state
+                regE[i].bgColor = "#00f";
+            }
+            if ((M1_sha1_state[R].Wt & (1 << i)) && (M2_sha1_state[R].Wt & (1 << i))) {
+                // Bit is set in both states
+                regWt[i].bgColor = "#000";
+            } else if (!(M1_sha1_state[R].Wt & (1 << i)) && !(M2_sha1_state[R].Wt & (1 << i))) {
+                // Bit is set in neither states
+                regWt[i].bgColor = "#fff";
+            } else {
+                // Bit is set in one state
+                regWt[i].bgColor = "#00f";
+            }
+        }
+    }
+}
+
+function reset_waterfall()
+{
+}
+
+function process_input_vectors()
+{
+    var M1 = byte_array_from_input(document.getElementById('M1'));
+    var M2 = byte_array_from_input(document.getElementById('M2'));
+
+    reset_waterfall();
+    sha1_process_message(M1, (function(R, A, B, C, D, E, Wt){ M1_sha1_state[R] = { "A" : A, "B" : B, "C" : C, "D" : D, "E" : E, "Wt" : Wt } }));
+    sha1_process_message(M2, (function(R, A, B, C, D, E, Wt){ M2_sha1_state[R] = { "A" : A, "B" : B, "C" : C, "D" : D, "E" : E, "Wt" : Wt } }));
+    process_waterfall();
+}
+</script>
+<p>
+<div align="center" class="message">
+  <p>This tool allows you to visualise the effects of changes on an input message pair on SHA-1 internal state. Try to converge the state in higher rounds to find a colliding input.</p>
+</div>
+&nbsp;
+<div align="center" class="warning"><strong>Warning: vectors are identical, change some bits to examine the waterfall effect.</strong></div>
+<ul>
+    <li>The background colour ranges from red to green based on hamming distance between this round in M1 and M2 (W[t] is excluded from hamming distance calculation).</li>
+    <li>Bit colour is White if the bit is unset in both, Black is set in both and Blue if set in M1 xor M2</li>
+    <li>Tip: Blink a bit on and off like a <a href="http://en.wikipedia.org/wiki/Blink_comparator">blink comparator</a> to help understand the changes.</li>
+    <li>If you can get R80 to have no blue bits, then you've found a colission and will be internet famous..</li>
+    <li>Padding and initial IV is ignored, because these are 512bit aligned messages. If you get a collision at R80, the Merkle-Damgard chaining property guarantees you will have a collision after padding.</li>
+    <li>This is why output will not match sha1sum (you need to append a padding block with message size, and add IV), but this is expected.</li>
+    <li>Yes, I'm aware I suck at HTML :-)</li>
+    <li>Doesn't work in IE (I don't know why), only tested with Chrome and Firefox.</li>
+    <li>Let me know if you have any ideas for better visualizations!</li>
+</ul>
+<p>
+    Bugs, Comments, Results, etc, contact Tavis Ormandy &lt;taviso@cmpxchg8b.com&gt;
+</p>
+<table width="100%" class="waterfall" id="sha1_internal_state">
+  <tbody><tr>
+    <th title="Round Number">t</th>
+    <th>A</th>
+    <th>B</th>
+    <th>C</th>
+    <th>D</th>
+    <th>E</th>
+    <th title="Plaintext Expansion">W[t]</th>
+  </tr>
+  <tr id="R_0"><th>0</th><td>
+      <table width="100%" class="register">
+        <tbody><tr>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+        </tr>
+      </tbody></table>
+    </td>
+    <td>
+      <table width="100%" class="register">
+        <tbody><tr>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+        </tr>
+      </tbody></table>
+    </td>
+    <td>
+      <table width="100%" class="register">
+        <tbody><tr>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+        </tr>
+      </tbody></table>
+    </td>
+    <td>
+      <table width="100%" class="register">
+        <tbody><tr>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+        </tr>
+      </tbody></table>
+    </td>
+    <td>
+      <table width="100%" class="register">
+        <tbody><tr>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+        </tr>
+      </tbody></table>
+    </td>
+    <td>
+      <table width="100%" class="register">
+        <tbody><tr>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+          <td bgcolor="#000000">&nbsp;</td>
+        </tr>
+      </tbody></table>
+    </td>
+  </tr>
+  </tbody>
+</table>
+<p>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+    This is padding because I don't know css.</br>
+</p>
+<p>
+<div align="center" class="messages">
+    <table width="100%">
+      <tr><div align="center">M<sub>1</sub></div></th></tr>
+      <tr id="M1">
+        <td>
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+        </td>
+      </tr>
+    </table>
+  <table width="100%">
+      <tr><div align="center">M<sub>2</sub></div></th></tr>
+      <tr id="M2">
+        <td>
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+          <input onchange="process_input_vectors()" type="checkbox">
+        </td>
+      </tr>
+    </table>
+</div>
+</p>
+<script>
+function create_state_table()
+{
+    var state = document.getElementById('sha1_internal_state');
+
+    for (var i = 2; i < 81; i++) {
+        var row = state.insertRow(i);
+        row.innerHTML = state.rows[i - 1].innerHTML;
+        row.cells[0].innerHTML = i - 1;
+        row.id = "R_" + (i - 1);
+    }
+};
+
+function create_input_checkboxes()
+{
+    var M1 = document.getElementById('M1');
+    var M2 = document.getElementById('M2');
+
+    for (var i = 1; i < 64; i++) {
+        var cell1 = M1.insertCell(i);
+        var cell2 = M2.insertCell(i);
+
+        cell1.innerHTML = M1.cells[i - 1].innerHTML;
+        cell2.innerHTML = M2.cells[i - 1].innerHTML;
+    }
+};
+
+create_state_table();
+create_input_checkboxes();
+
+if (document.location.search == "?best=1") {
+    input_from_byte_array(document.getElementById('M1'), best_known_M1);
+    input_from_byte_array(document.getElementById('M2'), best_known_M2);
+}
+</script>
+</body></html>
