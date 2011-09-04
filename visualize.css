@@ -21,7 +21,11 @@ td {
     width:              auto;
     background-color:   white;
     border:             1px solid black;
+}
+#messages {
     position:           fixed;
     bottom:             0;
 }
-
+#messages-spacing {
+    visibility:            hidden;
+}

@@ -170,7 +170,7 @@ function create_input_checkboxes()
     }
 };
 
-function init()
+$(function init()
 {
     create_state_table();
     create_input_checkboxes();
@@ -181,4 +181,8 @@ function init()
     }
     
     process_input_vectors();
-}
+    
+    // Inject a spacing div
+    var spacing = $("#messages").clone().attr("id", "messages-spacing");
+    $("#messages").after(spacing);
+});
